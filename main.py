@@ -137,7 +137,7 @@ def _fetch_app_details_single(app_id: int) -> Dict[str, Any]:
         raise
 
 
-@retry(tries=3, delay=1, backoff=2, max_delay=60)
+@retry(tries=8, delay=1, backoff=2, max_delay=120)
 def _fetch_app_details_with_retry(app_id: int) -> Dict[str, Any]:
     """
     Wrapper function that applies retry logic to _fetch_app_details_single.
@@ -250,6 +250,28 @@ def load_steam_apps_dict(filename: str = "steam_apps_dict.json") -> Dict[str, st
         return {}
 
 
+def load_failed_app_ids(filename: str = "failed_app_ids.json") -> List[int]:
+    """
+    Loads failed app IDs from a JSON file.
+    
+    Args:
+        filename (str): Name of the JSON file to load
+    
+    Returns:
+        List[int]: List of failed app IDs
+    """
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data.get('failed_app_ids', [])
+    except FileNotFoundError:
+        print(f"No failed app IDs file found at {filename}")
+        return []
+    except json.JSONDecodeError as e:
+        print(f"Error reading failed app IDs file {filename}: {e}")
+        return []
+
+
 def save_failed_app_ids(failed_app_ids: List[int], filename: str = "failed_app_ids.json") -> None:
     """
     Saves failed app IDs to a JSON file with metadata.
@@ -274,6 +296,24 @@ def save_failed_app_ids(failed_app_ids: List[int], filename: str = "failed_app_i
         print(f"Error saving failed app IDs to {filename}: {e}")
 
 
+def save_failed_app_ids_accumulative(new_failed_app_ids: List[int], filename: str = "failed_app_ids.json") -> None:
+    """
+    Saves failed app IDs to a JSON file, accumulating with existing failed app IDs.
+    
+    Args:
+        new_failed_app_ids (List[int]): List of new failed app IDs to add
+        filename (str): Name of the output JSON file
+    """
+    # Load existing failed app IDs
+    existing_failed_app_ids = load_failed_app_ids(filename)
+    
+    # Combine existing and new failed app IDs, removing duplicates
+    all_failed_app_ids = list(set(existing_failed_app_ids + new_failed_app_ids))
+    
+    # Save the combined list
+    save_failed_app_ids(all_failed_app_ids, filename)
+
+
 def save_non_existent_apps(non_existent_apps: List[int], filename: str = "non_existent_apps.json") -> None:
     """
     Saves non-existent app IDs to a JSON file with metadata.
@@ -296,6 +336,24 @@ def save_non_existent_apps(non_existent_apps: List[int], filename: str = "non_ex
         print(f"Total non-existent apps: {len(non_existent_apps)}")
     except IOError as e:
         print(f"Error saving non-existent app IDs to {filename}: {e}")
+
+
+def save_non_existent_apps_accumulative(new_non_existent_apps: List[int], filename: str = "non_existent_apps.json") -> None:
+    """
+    Saves non-existent app IDs to a JSON file, accumulating with existing non-existent app IDs.
+    
+    Args:
+        new_non_existent_apps (List[int]): List of new non-existent app IDs to add
+        filename (str): Name of the output JSON file
+    """
+    # Load existing non-existent app IDs
+    existing_non_existent_apps = load_non_existent_apps(filename)
+    
+    # Combine existing and new non-existent app IDs, removing duplicates
+    all_non_existent_apps = list(set(existing_non_existent_apps + new_non_existent_apps))
+    
+    # Save the combined list
+    save_non_existent_apps(all_non_existent_apps, filename)
 
 
 def load_non_existent_apps(filename: str = "non_existent_apps.json") -> List[int]:
@@ -467,7 +525,8 @@ def process_single_app(app_id: int, app_id_str: str, all_app_details: Dict[str, 
 
 
 def save_intermediate_results(all_app_details: Dict[str, Any], output_file: str, 
-                            current_count: int, non_existent_apps: List[int] = None) -> None:
+                            current_count: int, non_existent_apps: List[int] = None, 
+                            failed_app_ids: List[int] = None) -> None:
     """
     Saves intermediate results to a JSON file.
     
@@ -476,6 +535,7 @@ def save_intermediate_results(all_app_details: Dict[str, Any], output_file: str,
         output_file (str): Name of the output file
         current_count (int): Current number of processed apps
         non_existent_apps (List[int]): List of non-existent apps to save
+        failed_app_ids (List[int]): List of failed app IDs to save
     """
     print(f"Saving intermediate results after {current_count} apps...")
     if save_json_file(all_app_details, output_file):
@@ -483,8 +543,13 @@ def save_intermediate_results(all_app_details: Dict[str, Any], output_file: str,
     
     # Also save non-existent apps if provided
     if non_existent_apps and len(non_existent_apps) > 0:
-        save_non_existent_apps(non_existent_apps, "non_existent_apps.json")
-        print(f"Non-existent apps saved to non_existent_apps.json ({len(non_existent_apps)} apps)")
+        save_non_existent_apps_accumulative(non_existent_apps, "non_existent_apps.json")
+        print(f"Non-existent apps saved to non_existent_apps.json ({len(non_existent_apps)} new apps)")
+    
+    # Also save failed app IDs if provided
+    if failed_app_ids and len(failed_app_ids) > 0:
+        save_failed_app_ids_accumulative(failed_app_ids, "failed_app_ids.json")
+        print(f"Failed app IDs saved to failed_app_ids.json ({len(failed_app_ids)} new apps)")
 
 
 def fetch_all_app_details(app_ids: List[int], delay_between_requests: float = 0.5, 
@@ -532,7 +597,7 @@ def fetch_all_app_details(app_ids: List[int], delay_between_requests: float = 0.
         
         # Save intermediate results every batch_size apps
         if i % batch_size == 0:
-            save_intermediate_results(all_app_details, output_file, i, non_existent_apps)
+            save_intermediate_results(all_app_details, output_file, i, non_existent_apps, failed_app_ids_in_batch)
     
     # Save final results
     print(f"Saving final results to {output_file}...")
