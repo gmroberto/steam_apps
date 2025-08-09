@@ -1,7 +1,38 @@
 import time
+import os
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from steam_api_client import SteamApiClient
+from config_loader import get_config
+
+# Load environment variables from .env file if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, environment variables will be read from system
+    pass
+
+
+# ============================================================================
+# CONFIGURATION - Unified system: config.yml with environment variable placeholders
+# ============================================================================
+
+# Steam API configuration (loaded from config.yml with env var placeholders)
+DEFAULT_TIMEOUT = get_config('steam_api_client.timeout', 30)
+DEFAULT_DELAY = get_config('steam_api_client.delay', 0.5)
+
+# Processing configuration (loaded from config.yml)
+DEFAULT_BATCH_SIZE = get_config('steam_api_processor.batch_size', 100)
+
+# Default file names (loaded from config.yml)
+DEFAULT_STEAM_APPS_DICT_FILE = get_config('steam_api_processor.files.steam_apps_dict', 'steam_apps_dict.json')
+DEFAULT_STEAM_APPS_DETAILS_FILE = get_config('steam_api_processor.files.steam_apps_details', 'steam_apps_details.json')
+
+# Progress display configuration (loaded from config.yml)
+PROGRESS_DISPLAY_PRECISION = get_config('steam_api_processor.progress_precision', 1)
+
+# ============================================================================
 
 
 class SteamApiProcessor:
@@ -15,7 +46,7 @@ class SteamApiProcessor:
     - Processing individual apps with retry logic
     """
     
-    def __init__(self, default_timeout: int = 30, default_delay: float = 0.5):
+    def __init__(self, default_timeout: int = DEFAULT_TIMEOUT, default_delay: float = DEFAULT_DELAY):
         """
         Initialize the Steam API processor.
         
@@ -46,7 +77,7 @@ class SteamApiProcessor:
         apps = self.get_steam_app_list()
         return [app.get('appid') for app in apps if app.get('appid') is not None]
     
-    def validate_apps_locally(self, apps_dict: Dict[str, str], file_manager, details_file: str = "steam_apps_details.json") -> List[int]:
+    def validate_apps_locally(self, apps_dict: Dict[str, str], file_manager, details_file: str = DEFAULT_STEAM_APPS_DETAILS_FILE) -> List[int]:
         """
         Validates which apps need to be fetched by comparing local files.
         NO API CALLS - just file reading.
@@ -97,7 +128,7 @@ class SteamApiProcessor:
         print(f"Apps that need to be processed: {apps_to_process:,}")
         
         if apps_to_process > 0:
-            print(f"Processing percentage: {(apps_to_process/total_apps_in_dict)*100:.1f}%")
+            print(f"Processing percentage: {(apps_to_process/total_apps_in_dict)*100:.{PROGRESS_DISPLAY_PRECISION}f}%")
         else:
             print("All apps already have details or are marked as non-existent! Nothing to process.")
         
@@ -105,7 +136,7 @@ class SteamApiProcessor:
         
         return missing_apps
     
-    def create_steam_apps_dict(self, file_manager, filename: str = "steam_apps_dict.json") -> Dict[str, str]:
+    def create_steam_apps_dict(self, file_manager, filename: str = DEFAULT_STEAM_APPS_DICT_FILE) -> Dict[str, str]:
         """
         Creates a dictionary-style JSON file with app IDs as keys and app names as values.
         
@@ -250,9 +281,9 @@ class SteamApiProcessor:
         for i, app_id in enumerate(app_ids, 1):
             # Print progress
             if is_retry:
-                print(f"Processing failed app {app_id} ({i}/{total_apps}) - {(i/total_apps)*100:.1f}%")
+                print(f"Processing failed app {app_id} ({i}/{total_apps}) - {(i/total_apps)*100:.{PROGRESS_DISPLAY_PRECISION}f}%")
             else:
-                print(f"Processing app {app_id} ({i}/{total_apps}) - {(i/total_apps)*100:.1f}%")
+                print(f"Processing app {app_id} ({i}/{total_apps}) - {(i/total_apps)*100:.{PROGRESS_DISPLAY_PRECISION}f}%")
             
             # Process the app
             self.process_single_app(app_id, all_app_details, failed_app_ids, non_existent_apps, is_retry=is_retry)
@@ -279,7 +310,7 @@ class SteamApiProcessor:
             print(f"Successfully saved {len(all_app_details)} app details to {output_file}")
     
     def fetch_all_app_details(self, app_ids: List[int], delay_between_requests: float = None, 
-                             batch_size: int = 100, output_file: str = "steam_apps_details.json",
+                             batch_size: int = DEFAULT_BATCH_SIZE, output_file: str = DEFAULT_STEAM_APPS_DETAILS_FILE,
                              file_manager=None) -> Tuple[Dict[str, Any], List[int], List[int]]:
         """
         Fetches detailed information for all Steam apps with rate limiting and progress tracking.
@@ -403,7 +434,7 @@ class SteamApiProcessor:
             print(f"📈 Added {new_added} new apps to existing {initial_count} apps")
     
     def process_failed_apps_batch(self, failed_app_ids: List[int], delay_between_requests: float = None, 
-                                batch_size: int = 50, output_file: str = "steam_apps_details.json",
+                                batch_size: int = DEFAULT_BATCH_SIZE, output_file: str = DEFAULT_STEAM_APPS_DETAILS_FILE,
                                 file_manager=None) -> Tuple[List[int], List[int]]:
         """
         Processes a batch of failed app IDs.

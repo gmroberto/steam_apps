@@ -1,7 +1,39 @@
 import requests
 import json
+import os
 from typing import List, Dict, Any, Tuple
 from retry import retry
+from config_loader import get_config
+
+# Load environment variables from .env file if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, environment variables will be read from system
+    pass
+
+
+# ============================================================================
+# CONFIGURATION - Unified system: config.yml with environment variable placeholders
+# ============================================================================
+
+# Steam API configuration (loaded from config.yml with env var placeholders)
+DEFAULT_TIMEOUT = get_config('steam_api_client.timeout', 30)
+STEAM_APP_LIST_URL = get_config('steam_api_client.app_list_url', 'https://api.steampowered.com/ISteamApps/GetAppList/v2/')
+STEAM_APP_DETAILS_URL = get_config('steam_api_client.app_details_url', 'https://store.steampowered.com/api/appdetails?appids={}')
+DEFAULT_DELAY = get_config('steam_api_client.delay', 0.5)
+
+# Retry configuration (loaded from config.yml)
+RETRY_ATTEMPTS = get_config('steam_api_client.retry.attempts', 8)
+RETRY_INITIAL_DELAY = get_config('steam_api_client.retry.initial_delay', 1)
+RETRY_BACKOFF_MULTIPLIER = get_config('steam_api_client.retry.backoff_multiplier', 2)
+RETRY_MAX_DELAY = get_config('steam_api_client.retry.max_delay', 120)
+
+# HTTP status codes (loaded from config.yml)
+HTTP_RATE_LIMITED = get_config('steam_api_client.http_status.rate_limited', 429)
+
+# ============================================================================
 
 
 class SteamApiClient:
@@ -15,7 +47,7 @@ class SteamApiClient:
     - Managing request timeouts and error handling
     """
     
-    def __init__(self, default_timeout: int = 30):
+    def __init__(self, default_timeout: int = DEFAULT_TIMEOUT):
         """
         Initialize the Steam API client.
         
@@ -23,8 +55,8 @@ class SteamApiClient:
             default_timeout (int): Default timeout for API requests in seconds
         """
         self.default_timeout = default_timeout
-        self.app_list_url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-        self.app_details_url = "https://store.steampowered.com/api/appdetails?appids={}"
+        self.app_list_url = STEAM_APP_LIST_URL
+        self.app_details_url = STEAM_APP_DETAILS_URL
     
     def get_app_list(self) -> List[Dict[str, Any]]:
         """
@@ -66,7 +98,7 @@ class SteamApiClient:
             response = requests.get(url, timeout=self.default_timeout)
             
             # Check if we got rate limited (429 status code)
-            if response.status_code == 429:
+            if response.status_code == HTTP_RATE_LIMITED:
                 print(f"Rate limited for app {app_id}, will retry...")
                 raise requests.RequestException(f"Rate limited for app {app_id}")
             
@@ -88,7 +120,7 @@ class SteamApiClient:
             print(f"Unexpected error for app {app_id}: {e}")
             raise
     
-    @retry(tries=8, delay=1, backoff=2, max_delay=120)
+    @retry(tries=RETRY_ATTEMPTS, delay=RETRY_INITIAL_DELAY, backoff=RETRY_BACKOFF_MULTIPLIER, max_delay=RETRY_MAX_DELAY)
     def get_app_details_with_retry(self, app_id: int) -> Dict[str, Any]:
         """
         Fetches detailed information for a specific Steam app with retry logic.

@@ -1,6 +1,27 @@
 import json
 from datetime import datetime
 from typing import List, Dict, Any
+from config_loader import get_config
+
+
+# ============================================================================
+# CONFIGURATION - Loaded from config.yml with fallback defaults
+# ============================================================================
+
+# Default file encoding
+DEFAULT_ENCODING = get_config('file_manager.encoding', 'utf-8')
+
+# Default JSON formatting
+DEFAULT_INDENT = get_config('file_manager.json_indent', 2)
+DEFAULT_ENSURE_ASCII = get_config('file_manager.json_ensure_ascii', False)
+
+# Default file names
+DEFAULT_STEAM_APPS_DICT_FILE = get_config('file_manager.files.steam_apps_dict', 'steam_apps_dict.json')
+DEFAULT_FAILED_APP_IDS_FILE = get_config('file_manager.files.failed_app_ids', 'failed_app_ids.json')
+DEFAULT_NON_EXISTENT_APPS_FILE = get_config('file_manager.files.non_existent_apps', 'non_existent_apps.json')
+DEFAULT_STEAM_APPS_DETAILS_FILE = get_config('file_manager.files.steam_apps_details', 'steam_apps_details.json')
+
+# ============================================================================
 
 
 class FileManager:
@@ -15,7 +36,7 @@ class FileManager:
     - Saving intermediate and final results
     """
     
-    def __init__(self, encoding: str = 'utf-8', indent: int = 2, ensure_ascii: bool = False):
+    def __init__(self, encoding: str = DEFAULT_ENCODING, indent: int = DEFAULT_INDENT, ensure_ascii: bool = DEFAULT_ENSURE_ASCII):
         """
         Initialize the FileManager.
         
@@ -78,7 +99,7 @@ class FileManager:
             print(f"Error writing to file {filename}: {e}")
             return False
     
-    def load_steam_apps_dict(self, filename: str = "steam_apps_dict.json") -> Dict[str, str]:
+    def load_steam_apps_dict(self, filename: str = DEFAULT_STEAM_APPS_DICT_FILE) -> Dict[str, str]:
         """
         Loads the Steam apps dictionary from a JSON file.
         
@@ -98,7 +119,7 @@ class FileManager:
             print(f"Error parsing {filename}: {e}")
             return {}
     
-    def load_failed_app_ids(self, filename: str = "failed_app_ids.json") -> List[int]:
+    def load_failed_app_ids(self, filename: str = DEFAULT_FAILED_APP_IDS_FILE) -> List[int]:
         """
         Loads failed app IDs from a JSON file.
         
@@ -119,7 +140,7 @@ class FileManager:
             print(f"Error reading failed app IDs file {filename}: {e}")
             return []
     
-    def save_failed_app_ids(self, failed_app_ids: List[int], filename: str = "failed_app_ids.json") -> None:
+    def save_failed_app_ids(self, failed_app_ids: List[int], filename: str = DEFAULT_FAILED_APP_IDS_FILE) -> None:
         """
         Saves failed app IDs to a JSON file with metadata.
         
@@ -142,7 +163,7 @@ class FileManager:
         except IOError as e:
             print(f"Error saving failed app IDs to {filename}: {e}")
     
-    def save_failed_app_ids_accumulative(self, new_failed_app_ids: List[int], filename: str = "failed_app_ids.json") -> None:
+    def save_failed_app_ids_accumulative(self, new_failed_app_ids: List[int], filename: str = DEFAULT_FAILED_APP_IDS_FILE) -> None:
         """
         Saves failed app IDs to a JSON file, accumulating with existing failed app IDs.
         
@@ -159,7 +180,7 @@ class FileManager:
         # Save the combined list
         self.save_failed_app_ids(all_failed_app_ids, filename)
     
-    def load_non_existent_apps(self, filename: str = "non_existent_apps.json") -> List[int]:
+    def load_non_existent_apps(self, filename: str = DEFAULT_NON_EXISTENT_APPS_FILE) -> List[int]:
         """
         Loads non-existent app IDs from a JSON file.
         
@@ -180,7 +201,7 @@ class FileManager:
             print(f"Error reading non-existent apps file {filename}: {e}")
             return []
     
-    def save_non_existent_apps(self, non_existent_apps: List[int], filename: str = "non_existent_apps.json") -> None:
+    def save_non_existent_apps(self, non_existent_apps: List[int], filename: str = DEFAULT_NON_EXISTENT_APPS_FILE) -> None:
         """
         Saves non-existent app IDs to a JSON file with metadata.
         
@@ -203,7 +224,7 @@ class FileManager:
         except IOError as e:
             print(f"Error saving non-existent app IDs to {filename}: {e}")
     
-    def save_non_existent_apps_accumulative(self, new_non_existent_apps: List[int], filename: str = "non_existent_apps.json") -> None:
+    def save_non_existent_apps_accumulative(self, new_non_existent_apps: List[int], filename: str = DEFAULT_NON_EXISTENT_APPS_FILE) -> None:
         """
         Saves non-existent app IDs to a JSON file, accumulating with existing non-existent app IDs.
         
@@ -239,12 +260,12 @@ class FileManager:
         
         # Also save non-existent apps if provided
         if non_existent_apps and len(non_existent_apps) > 0:
-            self.save_non_existent_apps_accumulative(non_existent_apps, "non_existent_apps.json")
+            self.save_non_existent_apps_accumulative(non_existent_apps, DEFAULT_NON_EXISTENT_APPS_FILE)
             print(f"Non-existent apps saved to non_existent_apps.json ({len(non_existent_apps)} new apps)")
         
         # Also save failed app IDs if provided
         if failed_app_ids and len(failed_app_ids) > 0:
-            self.save_failed_app_ids_accumulative(failed_app_ids, "failed_app_ids.json")
+            self.save_failed_app_ids_accumulative(failed_app_ids, DEFAULT_FAILED_APP_IDS_FILE)
             print(f"Failed app IDs saved to failed_app_ids.json ({len(failed_app_ids)} new apps)")
     
     def save_final_results(self, failed_fetch_ids: List[int], non_existent_apps: List[int]) -> None:
@@ -257,11 +278,11 @@ class FileManager:
         """
         # Save failed app IDs
         if failed_fetch_ids:
-            self.save_failed_app_ids(failed_fetch_ids, "failed_app_ids.json")
+            self.save_failed_app_ids(failed_fetch_ids, DEFAULT_FAILED_APP_IDS_FILE)
         
         # Save non-existent app IDs
         if non_existent_apps:
-            self.save_non_existent_apps(non_existent_apps, "non_existent_apps.json")
+            self.save_non_existent_apps(non_existent_apps, DEFAULT_NON_EXISTENT_APPS_FILE)
     
     def print_completion_summary(self, app_details: Dict[str, Any], failed_fetch_ids: List[int], non_existent_apps: List[int]) -> None:
         """

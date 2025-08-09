@@ -6,7 +6,30 @@ from typing import List, Dict, Any, Tuple
 from retry import retry
 from steam_api_processor import SteamApiProcessor
 from file_manager import FileManager
+from config_loader import get_config
 
+
+# ============================================================================
+# CONFIGURATION - Loaded from config.yml with fallback defaults
+# ============================================================================
+
+# Default delay between API requests (in seconds)
+DEFAULT_DELAY_BETWEEN_REQUESTS = get_config('retry_failed_apps.delay_between_requests', 0.5)
+
+# Default batch size for saving intermediate results
+DEFAULT_BATCH_SIZE = get_config('retry_failed_apps.batch_size', 50)
+
+# Default output file name
+DEFAULT_OUTPUT_FILE = get_config('retry_failed_apps.files.output_file', 'steam_apps_details.json')
+
+# Default failed app IDs file name
+DEFAULT_FAILED_FETCH_FILE = get_config('retry_failed_apps.files.failed_fetch_file', 'failed_fetch_app_ids.json')
+
+# Default non-existent apps file name
+DEFAULT_NON_EXISTENT_FILE = get_config('retry_failed_apps.files.non_existent_file', 'non_existent_apps.json')
+
+# Wait time between retry iterations (in seconds)
+ITERATION_WAIT_TIME = get_config('retry_failed_apps.iteration_wait_time', 5)
 
 # ============================================================================
 # GLOBAL INSTANCES
@@ -28,19 +51,19 @@ def load_json_file(filename: str) -> Dict[str, Any]:
 def save_json_file(data: Dict[str, Any], filename: str) -> bool:
     return file_manager.save_json_file(data, filename)
 
-def load_failed_app_ids(filename: str = "failed_fetch_app_ids.json") -> List[int]:
+def load_failed_app_ids(filename: str = DEFAULT_FAILED_FETCH_FILE) -> List[int]:
     return file_manager.load_failed_app_ids(filename)
 
-def save_failed_app_ids(failed_app_ids: List[int], filename: str = "failed_fetch_app_ids.json") -> None:
+def save_failed_app_ids(failed_app_ids: List[int], filename: str = DEFAULT_FAILED_FETCH_FILE) -> None:
     return file_manager.save_failed_app_ids(failed_app_ids, filename)
 
-def save_non_existent_apps(non_existent_apps: List[int], filename: str = "non_existent_apps.json") -> None:
+def save_non_existent_apps(non_existent_apps: List[int], filename: str = DEFAULT_NON_EXISTENT_FILE) -> None:
     return file_manager.save_non_existent_apps(non_existent_apps, filename)
 
-def save_non_existent_apps_accumulative(new_non_existent_apps: List[int], filename: str = "non_existent_apps.json") -> None:
+def save_non_existent_apps_accumulative(new_non_existent_apps: List[int], filename: str = DEFAULT_NON_EXISTENT_FILE) -> None:
     return file_manager.save_non_existent_apps_accumulative(new_non_existent_apps, filename)
 
-def load_non_existent_apps(filename: str = "non_existent_apps.json") -> List[int]:
+def load_non_existent_apps(filename: str = DEFAULT_NON_EXISTENT_FILE) -> List[int]:
     return file_manager.load_non_existent_apps(filename)
 
 
@@ -80,8 +103,8 @@ def save_intermediate_results(all_app_details: Dict[str, Any], output_file: str,
     file_manager.save_intermediate_results(all_app_details, output_file, current_count, new_non_existent_apps, new_failed_app_ids)
 
 
-def process_failed_apps_batch(failed_app_ids: List[int], delay_between_requests: float = 0.5, 
-                            batch_size: int = 50, output_file: str = "steam_apps_details.json") -> Tuple[List[int], List[int]]:
+def process_failed_apps_batch(failed_app_ids: List[int], delay_between_requests: float = DEFAULT_DELAY_BETWEEN_REQUESTS, 
+                            batch_size: int = DEFAULT_BATCH_SIZE, output_file: str = DEFAULT_OUTPUT_FILE) -> Tuple[List[int], List[int]]:
     """
     Processes a batch of failed app IDs.
     
@@ -130,7 +153,7 @@ def _check_for_failed_apps() -> List[int]:
     Returns:
         List[int]: List of failed app IDs, empty if none found
     """
-    failed_app_ids = load_failed_app_ids("failed_fetch_app_ids.json")
+    failed_app_ids = load_failed_app_ids(DEFAULT_FAILED_FETCH_FILE)
     
     if not failed_app_ids:
         print(f"\n🎉 No more failed apps to process! All done!")
@@ -191,13 +214,13 @@ def _save_iteration_results(new_failed_app_ids: List[int], new_non_existent_apps
         new_non_existent_apps (List[int]): New non-existent app IDs
     """
     if new_non_existent_apps:
-        save_non_existent_apps_accumulative(new_non_existent_apps, "non_existent_apps.json")
+        save_non_existent_apps_accumulative(new_non_existent_apps, DEFAULT_NON_EXISTENT_FILE)
     
     if new_failed_app_ids:
-        save_failed_app_ids(new_failed_app_ids, "failed_fetch_app_ids.json")
+        save_failed_app_ids(new_failed_app_ids, DEFAULT_FAILED_FETCH_FILE)
     else:
         # No more failed apps - clear the file
-        save_failed_app_ids([], "failed_fetch_app_ids.json")
+        save_failed_app_ids([], DEFAULT_FAILED_FETCH_FILE)
 
 def _wait_between_iterations(new_failed_app_ids: List[int]) -> None:
     """
@@ -207,8 +230,8 @@ def _wait_between_iterations(new_failed_app_ids: List[int]) -> None:
         new_failed_app_ids (List[int]): New failed app IDs
     """
     if new_failed_app_ids:
-        print(f"\n⏳ Waiting 5 seconds before next iteration...")
-        time.sleep(5)
+        print(f"\n⏳ Waiting {ITERATION_WAIT_TIME} seconds before next iteration...")
+        time.sleep(ITERATION_WAIT_TIME)
 
 def _print_final_summary(iteration: int, total_processed: int, total_successful: int, total_non_existent: int) -> None:
     """
@@ -230,8 +253,8 @@ def _print_final_summary(iteration: int, total_processed: int, total_successful:
     print(f"Final failed apps: 0")
     print("="*60)
 
-def retry_failed_apps_loop(delay_between_requests: float = 0.5, batch_size: int = 50, 
-                          output_file: str = "steam_apps_details.json") -> None:
+def retry_failed_apps_loop(delay_between_requests: float = DEFAULT_DELAY_BETWEEN_REQUESTS, batch_size: int = DEFAULT_BATCH_SIZE, 
+                          output_file: str = DEFAULT_OUTPUT_FILE) -> None:
     """
     Main loop that processes failed app IDs until there are none left.
     
@@ -292,9 +315,9 @@ def main():
     """
     try:
         # Configuration
-        delay_between_requests = 0.5  # 0.5 second delay between requests
-        batch_size = 50  # Save intermediate results every 50 apps
-        output_file = "steam_apps_details.json"
+        delay_between_requests = DEFAULT_DELAY_BETWEEN_REQUESTS  # Default delay between requests
+        batch_size = DEFAULT_BATCH_SIZE  # Default batch size for intermediate saves
+        output_file = DEFAULT_OUTPUT_FILE  # Default output file
         
         print("🔒 SAFETY GUARANTEE: This script will APPEND to existing steam_apps_details.json")
         print("🔒 It will NOT overwrite or create a new file. All existing data will be preserved.")

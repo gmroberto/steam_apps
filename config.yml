@@ -1,0 +1,115 @@
+# ============================================================================
+# Steam Games Data Processor - Configuration File
+# ============================================================================
+# This file contains all configuration parameters with environment variable
+# placeholder support for sensitive data.
+#
+# Placeholder formats:
+# - "${ENV_VAR}" - required environment variable
+# - "${ENV_VAR:default}" - environment variable with default value
+# - "${ENV_VAR:}" - environment variable with empty string default
+
+# ============================================================================
+# File Manager Configuration
+# ============================================================================
+file_manager:
+  # JSON file encoding and formatting
+  encoding: 'utf-8'
+  json_indent: 2
+  json_ensure_ascii: false
+  
+  # Default file names
+  files:
+    steam_apps_dict: "steam_apps_dict.json"
+    steam_apps_details: "steam_apps_details.json"
+    failed_app_ids: "failed_app_ids.json"
+    non_existent_apps: "non_existent_apps.json"
+
+# ============================================================================
+# Steam API Client Configuration
+# ============================================================================
+steam_api_client:
+  # API endpoints (can be overridden for proxies or custom endpoints)
+  app_list_url: "${STEAM_APP_LIST_URL:https://api.steampowered.com/ISteamApps/GetAppList/v2/}"
+  app_details_url: "${STEAM_APP_DETAILS_URL:https://store.steampowered.com/api/appdetails?appids={}}"
+  
+  # Request timeout (can be overridden by environment variables)
+  timeout: "${STEAM_API_TIMEOUT:30}"
+  
+  # Request delay (can be overridden by environment variables)  
+  delay: "${STEAM_API_DELAY:0.5}"
+  
+  # Retry configuration
+  retry:
+    attempts: 8
+    initial_delay: 1
+    backoff_multiplier: 2
+    max_delay: 120
+  
+  # HTTP status codes
+  http_status:
+    rate_limited: 429
+
+# ============================================================================
+# Steam API Processor Configuration
+# ============================================================================
+steam_api_processor:
+  # Processing configuration
+  batch_size: 100
+  
+  # Progress display
+  progress_precision: 1  # Decimal places for progress percentage
+  
+  # File names (can override file_manager defaults)
+  files:
+    steam_apps_dict: "steam_apps_dict.json"
+    steam_apps_details: "steam_apps_details.json"
+
+# ============================================================================
+# Retry Failed Apps Configuration
+# ============================================================================
+retry_failed_apps:
+  # Processing configuration
+  delay_between_requests: 0.5  # seconds
+  batch_size: 50
+  iteration_wait_time: 5  # seconds between retry iterations
+  
+  # File names
+  files:
+    output_file: "steam_apps_details.json"
+    failed_fetch_file: "failed_fetch_app_ids.json"
+    non_existent_file: "non_existent_apps.json"
+
+# ============================================================================
+# MongoDB Configuration (with environment variable support)
+# ============================================================================
+mongodb:
+  # Connection settings (sensitive - from environment variables)
+  connection_string: "${MONGODB_CONNECTION_STRING:mongodb://localhost:27017/}"
+  database_name: "${MONGODB_DATABASE_NAME:steam_games}"
+  collection_name: "${MONGODB_COLLECTION_NAME:steam_game_details}"
+  
+  # Performance settings (can be overridden by environment variables)
+  chunk_size: "${MONGODB_CHUNK_SIZE:1000}"
+  server_timeout: "${MONGODB_SERVER_TIMEOUT:5000}"  # milliseconds
+  
+  # Safety settings (can be overridden by environment variables)
+  drop_collection: "${MONGODB_DROP_COLLECTION:false}"  # WARNING: true will delete existing data
+  
+  # File settings (can be overridden by environment variables)
+  input_file: "${MONGODB_INPUT_FILE:steam_apps_details.json}"
+  log_file: "${MONGODB_LOG_FILE:mongodb_insert.log}"
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(levelname)s - %(message)s"
+  
+# ============================================================================
+# Environment Settings
+# ============================================================================
+environment:
+  debug: false
+  environment: "development"  # development, staging, production

@@ -3,38 +3,44 @@
 MongoDB Insertion Script for Steam App Details
 
 This script reads steam_apps_details.json and inserts the data into MongoDB.
-Configure the parameters in the CONFIGURATION section below.
+Configure the parameters in the CONFIGURATION section below or use environment variables.
 """
 
 import json
 import logging
+import os
 import sys
 from typing import Dict, List, Any, Iterator
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, ConnectionFailure, ServerSelectionTimeoutError
 import time
+from config_loader import get_config
+
+# Load environment variables from .env file if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, environment variables will be read from system
+    pass
 
 # ============================================================================
-# CONFIGURATION - Modify these parameters as needed
+# CONFIGURATION - Unified system: config.yml with environment variable placeholders
 # ============================================================================
 
-# MongoDB connection string
-CONNECTION_STRING = "mongodb+srv://admin:WrGSFsbHMWJcWxDZ@cluster0.ynvnvt2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+# MongoDB configuration (loaded from config.yml with env var placeholders)
+CONNECTION_STRING = get_config('mongodb.connection_string', 'mongodb://localhost:27017/')
+DATABASE_NAME = get_config('mongodb.database_name', 'steam_games')
+COLLECTION_NAME = get_config('mongodb.collection_name', 'steam_game_details')
 
-# Number of documents to insert per batch
-CHUNK_SIZE = 1000
+# Performance and file settings (loaded from config.yml with env var placeholders)
+CHUNK_SIZE = get_config('mongodb.chunk_size', 1000)
+SERVER_SELECTION_TIMEOUT = get_config('mongodb.server_timeout', 5000)
+INPUT_FILE = get_config('mongodb.input_file', 'steam_apps_details.json')
+LOG_FILE_NAME = get_config('mongodb.log_file', 'mongodb_insert.log')
 
-# Path to the input JSON file
-INPUT_FILE = "steam_apps_details.json"
-
-# MongoDB database name
-DATABASE_NAME = "steam_games"
-
-# MongoDB collection name
-COLLECTION_NAME = "steam_game_details"
-
-# Whether to drop the collection before inserting (WARNING: This will delete existing data)
-DROP_COLLECTION = False
+# Safety setting (loaded from config.yml with env var placeholders)
+DROP_COLLECTION = get_config('mongodb.drop_collection', False)
 
 # ============================================================================
 
@@ -67,7 +73,7 @@ class MongoDBInserter:
             bool: True if connection successful, False otherwise
         """
         try:
-            self.client = MongoClient(self.connection_string, serverSelectionTimeoutMS=5000)
+            self.client = MongoClient(self.connection_string, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT)
             # Test the connection
             self.client.server_info()
             self.db = self.client[self.database_name]
@@ -200,7 +206,7 @@ def setup_logging():
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler('mongodb_insert.log')
+            logging.FileHandler(LOG_FILE_NAME)
         ]
     )
 
