@@ -4,8 +4,8 @@ import time
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from retry import retry
-from steam_api_processor import SteamApiProcessor
-from file_manager import FileManager
+from src.processors.steam_data_processor import SteamApiProcessor
+from src.utils.file_operations import FileManager
 
 
 # ============================================================================

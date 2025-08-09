@@ -20,10 +20,10 @@ file_manager:
   
   # Default file names
   files:
-    steam_apps_dict: "steam_apps_dict.json"
-    steam_apps_details: "steam_apps_details.json"
-    failed_app_ids: "failed_app_ids.json"
-    non_existent_apps: "non_existent_apps.json"
+    steam_apps_dict: "data/raw/steam_apps_dict.json"
+    steam_apps_details: "data/processed/steam_apps_details.json"
+    failed_app_ids: "data/processed/failed_app_ids.json"
+    non_existent_apps: "data/processed/non_existent_apps.json"
 
 # ============================================================================
 # Steam API Client Configuration
@@ -62,8 +62,8 @@ steam_api_processor:
   
   # File names (can override file_manager defaults)
   files:
-    steam_apps_dict: "steam_apps_dict.json"
-    steam_apps_details: "steam_apps_details.json"
+    steam_apps_dict: "data/raw/steam_apps_dict.json"
+    steam_apps_details: "data/processed/steam_apps_details.json"
 
 # ============================================================================
 # Retry Failed Apps Configuration
@@ -76,9 +76,9 @@ retry_failed_apps:
   
   # File names
   files:
-    output_file: "steam_apps_details.json"
-    failed_fetch_file: "failed_fetch_app_ids.json"
-    non_existent_file: "non_existent_apps.json"
+    output_file: "data/processed/steam_apps_details.json"
+    failed_fetch_file: "data/processed/failed_fetch_app_ids.json"
+    non_existent_file: "data/processed/non_existent_apps.json"
 
 # ============================================================================
 # MongoDB Configuration (with environment variable support)
@@ -97,8 +97,8 @@ mongodb:
   drop_collection: "${MONGODB_DROP_COLLECTION:false}"  # WARNING: true will delete existing data
   
   # File settings (can be overridden by environment variables)
-  input_file: "${MONGODB_INPUT_FILE:steam_apps_details.json}"
-  log_file: "${MONGODB_LOG_FILE:mongodb_insert.log}"
+  input_file: "${MONGODB_INPUT_FILE:data/processed/steam_apps_details.json}"
+  log_file: "${MONGODB_LOG_FILE:data/logs/mongodb_insert.log}"
 
 # ============================================================================
 # Logging Configuration

@@ -33,7 +33,7 @@ class ConfigLoader:
     - "${ENV_VAR:}" - environment variable with empty string default
     """
     
-    def __init__(self, config_file: str = "config.yml"):
+    def __init__(self, config_file: str = "config/config.yml"):
         """
         Initialize the configuration loader.
         

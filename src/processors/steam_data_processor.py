@@ -2,8 +2,8 @@ import time
 import os
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
-from steam_api_client import SteamApiClient
-from config_loader import get_config
+from src.extractors.steam_api_client import SteamApiClient
+from src.utils.config_manager import get_config
 
 # Load environment variables from .env file if available
 try:
