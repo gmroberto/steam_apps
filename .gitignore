@@ -53,7 +53,7 @@ mongodb_insert.log
 
 # Data files (optional - uncomment if you don't want to commit data files)
 *.json
-!requirements.txt
+# !requirements.txt
 !package.json
 
 # Temporary files
