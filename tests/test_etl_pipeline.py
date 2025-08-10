@@ -7,20 +7,16 @@ to test the complete ETL pipeline: API calls, processing, and MongoDB insertion.
 """
 
 import os
-import sys
 import time
 from datetime import datetime
 from typing import Dict, Any, List
-
-# Add project root to path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Import ETL functions from src
 from src.extractors.steam_data_extractor import SteamDataExtractor
 from src.processors.steam_data_transformer import SteamDataTransformer
 from src.utils.json_saver import JsonSaver
 from src.loaders.mongodb_loader import MongoDBInserter
-from config.config_manager import get_config
+from config.config_manager import get_config, get_test_config, get_test_mongodb_config, get_test_files_config, get_test_steam_api_config, get_test_processing_config
 
 # Load environment variables if available
 try:
@@ -33,12 +29,15 @@ except ImportError:
 # TEST CONFIGURATION
 # ============================================================================
 
-# Test configuration - limit to 100 documents
+# Test configuration - using config.yml with test-specific settings
 TEST_CONFIG = {
-    'max_apps': 100,
-    'delay_between_requests': 0.1,  # Faster for testing
-    'output_dir': 'data/test_output',
-    'test_filename': 'test_steam_data.json'
+    'max_apps': get_test_config('steam_api.max_apps', 100),
+    'delay_between_requests': get_test_config('steam_api.delay', 0.1),  # Faster for testing
+    'output_dir': get_test_config('files.output_dir', 'data/test_output'),
+    'file_prefix': get_test_config('files.prefix', 'test_'),
+    'test_filename': f"{get_test_config('files.prefix', 'test_')}steam_data.json",
+    'batch_size': get_test_config('processing.batch_size', 50),
+    'max_retries': get_test_config('processing.max_retries', 2)
 }
 
 # ============================================================================
@@ -196,7 +195,7 @@ def test_save_to_json(processed_data: Dict[str, Any]) -> Dict[str, Any]:
         # Save statistics separately
         stats_file_path = saver.save_statistics(
             processed_data['statistics'],
-            filename='test_steam_statistics.json'
+            filename=f"{TEST_CONFIG['file_prefix']}steam_statistics.json"
         )
         
         # Prepare results
@@ -237,10 +236,11 @@ def test_load_to_mongodb(processed_data: Dict[str, Any]) -> Dict[str, Any]:
         if processed_data.get('status') != 'success':
             return {"status": "error", "message": "No valid data to load"}
         
-        # Get MongoDB configuration
+        # Get MongoDB configuration - use test-specific settings
         connection_string = get_config('mongodb.connection_string', 'mongodb://localhost:27017/')
-        database_name = get_config('mongodb.database_name', 'steam_games_test')
-        collection_name = get_config('mongodb.collection_name', 'steam_game_details_test')
+        test_mongodb_config = get_test_mongodb_config()
+        database_name = test_mongodb_config.get('database_name', 'steam_games_test')
+        collection_name = test_mongodb_config.get('collection_name', 'steam_game_details_test')
         
         # Initialize MongoDB inserter
         inserter = MongoDBInserter(
@@ -266,7 +266,7 @@ def test_load_to_mongodb(processed_data: Dict[str, Any]) -> Dict[str, Any]:
         
         # Insert documents in batches
         print(f"Inserting {len(documents)} documents...")
-        chunk_size = get_config('mongodb.chunk_size', 100)
+        chunk_size = test_mongodb_config.get('chunk_size', 100)
         total_inserted = 0
         total_errors = 0
         

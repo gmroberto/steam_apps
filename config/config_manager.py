@@ -23,6 +23,8 @@ except ImportError:
     pass
 
 
+
+
 class ConfigLoader:
     """
     Loads configuration from config.yml file with environment variable placeholder support.
@@ -565,3 +567,79 @@ def get_dag_dir_list_interval() -> int:
         int: Interval in seconds
     """
     return get_airflow_config('scheduler.dag_dir_list_interval', 300)
+
+
+# ============================================================================
+# TEST CONFIGURATION UTILITIES
+# ============================================================================
+
+def get_test_config(key_path: str, default: Any = None) -> Any:
+    """
+    Get test configuration value using dot notation.
+    
+    Args:
+        key_path (str): Dot-separated path to the test configuration value
+        default (Any): Default value if key is not found
+        
+    Returns:
+        Any: Test configuration value or default
+        
+    Examples:
+        get_test_config('mongodb.database_name', 'steam_games_test')
+        get_test_config('steam_api.delay', 0.1)
+    """
+    return get_config(f'test.{key_path}', default)
+
+
+def get_test_mongodb_config() -> Dict[str, Any]:
+    """
+    Get test MongoDB configuration.
+    
+    Returns:
+        Dict[str, Any]: Test MongoDB configuration
+    """
+    return get_config('test.mongodb', {})
+
+
+def get_test_files_config() -> Dict[str, Any]:
+    """
+    Get test files configuration.
+    
+    Returns:
+        Dict[str, Any]: Test files configuration
+    """
+    return get_config('test.files', {})
+
+
+def get_test_steam_api_config() -> Dict[str, Any]:
+    """
+    Get test Steam API configuration.
+    
+    Returns:
+        Dict[str, Any]: Test Steam API configuration
+    """
+    return get_config('test.steam_api', {})
+
+
+def get_test_processing_config() -> Dict[str, Any]:
+    """
+    Get test processing configuration.
+    
+    Returns:
+        Dict[str, Any]: Test processing configuration
+    """
+    return get_config('test.processing', {})
+
+
+def is_test_environment() -> bool:
+    """
+    Check if running in test environment.
+    
+    Returns:
+        bool: True if test environment
+    """
+    environment = get_config('environment.environment', 'development')
+    return environment == 'test' or os.getenv('TEST_ENVIRONMENT', '').lower() == 'true'
+
+
+

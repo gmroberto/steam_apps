@@ -339,6 +339,7 @@ services:
       dockerfile: Dockerfile
       target: airflow
     container_name: steam-games-init-airflow
+    restart: "no"  # Don't restart - this is a one-time initialization
     depends_on:
       postgres:
         condition: service_started

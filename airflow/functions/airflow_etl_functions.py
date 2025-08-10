@@ -7,11 +7,7 @@ main functions from the project's scripts.
 """
 
 import os
-import sys
 from typing import Dict, Any, Optional
-
-# Add project root to path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Import existing main functions
 from scripts.steam_data_extractor import main_processing_workflow, create_initial_files

@@ -101,6 +101,31 @@ mongodb:
   log_file: "${MONGODB_LOG_FILE:data/logs/mongodb_insert.log}"
 
 # ============================================================================
+# Test Configuration (separate from production)
+# ============================================================================
+test:
+  # Test MongoDB settings (separate database and collection)
+  mongodb:
+    database_name: "${MONGODB_TEST_DATABASE_NAME:steam_games_test}"
+    collection_name: "${MONGODB_TEST_COLLECTION_NAME:steam_game_details_test}"
+    chunk_size: "${TEST_MONGODB_CHUNK_SIZE:100}"
+    
+  # Test file settings
+  files:
+    output_dir: "${TEST_DATA_OUTPUT_DIR:data/test_output}"
+    prefix: "${TEST_FILE_PREFIX:test_}"
+    
+  # Test API settings (faster for testing)
+  steam_api:
+    delay: "${TEST_STEAM_API_DELAY:0.1}"
+    max_apps: 100
+    
+  # Test processing settings
+  processing:
+    batch_size: 50
+    max_retries: 2
+
+# ============================================================================
 # Logging Configuration
 # ============================================================================
 logging:
