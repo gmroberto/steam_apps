@@ -9,15 +9,12 @@ main functions from the project's scripts.
 import os
 from typing import Dict, Any, Optional
 
-# Import existing main functions
-from scripts.steam_data_extractor import main_processing_workflow, create_initial_files
-from src.processors.retry_failed_extractions import main as retry_main
-from src.loaders.mongodb_loader import main as mongodb_main
-
 # Import main wrapper functions from src
 from src.extractors.steam_data_extractor import run_steam_extraction
 from src.processors.steam_data_transformer import run_steam_processing
 from src.utils.json_saver import run_steam_saving
+from src.processors.retry_failed_extractions import main as retry_main
+from src.loaders.mongodb_loader import main as mongodb_main
 
 # Load environment variables if available
 try:

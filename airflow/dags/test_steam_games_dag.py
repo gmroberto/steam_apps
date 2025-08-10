@@ -170,21 +170,13 @@ with DAG(
         retry_delay=timedelta(minutes=5),
     )
     
+
     # ========================================================================
-    # TASK DEPENDENCIES - OPTION 1: INDIVIDUAL TASKS
-    # ========================================================================
-    
-    # Individual test tasks flow
-    start_test_pipeline >> test_extract_steam_data_task >> test_process_steam_data_task
-    test_process_steam_data_task >> test_save_to_json_task >> test_load_to_mongodb_task
-    test_load_to_mongodb_task >> end_test_pipeline
-    
-    # ========================================================================
-    # TASK DEPENDENCIES - OPTION 2: COMPLETE PIPELINE (COMMENTED OUT)
+    # TASK DEPENDENCIES - OPTION 2: COMPLETE PIPELINE (RECOMMENDED)
     # ========================================================================
     
-    # Uncomment the lines below to use the complete pipeline approach instead
-    # start_test_pipeline >> run_complete_test_pipeline >> end_test_pipeline
+    # Use the complete pipeline approach for proper data flow
+    start_test_pipeline >> run_complete_test_pipeline >> end_test_pipeline
 
 # ============================================================================
 # DAG DOCUMENTATION
