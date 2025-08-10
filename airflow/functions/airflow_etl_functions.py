@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Import existing main functions
 from scripts.steam_data_extractor import main_processing_workflow, create_initial_files
-from scripts.retry_failed_extractions import main as retry_main
+from src.processors.retry_failed_extractions import main as retry_main
 from src.loaders.mongodb_loader import main as mongodb_main
 
 # Import main wrapper functions from src
