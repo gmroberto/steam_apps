@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from typing import List, Dict, Any, Tuple
 from src.extractors.steam_api_client import SteamApiClient
-from src.utils.config_manager import get_config
+from config.config_manager import get_config
 
 # Load environment variables from .env file if available
 try:

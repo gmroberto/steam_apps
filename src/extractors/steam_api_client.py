@@ -3,7 +3,7 @@ import json
 import os
 from typing import List, Dict, Any, Tuple
 from retry import retry
-from src.utils.config_manager import get_config
+from config.config_manager import get_config
 
 # Load environment variables from .env file if available
 try:

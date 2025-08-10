@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from typing import List, Dict, Any
-from src.utils.config_manager import get_config
+from config.config_manager import get_config
 
 
 # ============================================================================

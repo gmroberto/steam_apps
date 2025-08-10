@@ -8,7 +8,7 @@ Designed for use in ETL pipelines where extraction, processing, and loading are 
 
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Set, Tuple
-from src.utils.config_manager import get_config
+from config.config_manager import get_config
 
 # Load environment variables from .env file if available
 try:

@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Iterator
 from pymongo import MongoClient
 from pymongo.errors import BulkWriteError, ConnectionFailure, ServerSelectionTimeoutError
 import time
-from src.utils.config_manager import get_config
+from config.config_manager import get_config
 
 # Load environment variables from .env file if available
 try:

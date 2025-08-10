@@ -18,3 +18,13 @@ apache-airflow==2.8.1
 apache-airflow-providers-mongo==3.3.0
 apache-airflow-providers-http==4.7.0
 apache-airflow-providers-json==1.0.0
+apache-airflow-providers-postgres==5.7.1
+apache-airflow-providers-redis==3.0.0
+apache-airflow-providers-celery==3.3.0
+
+# Database dependencies for Airflow
+psycopg2-binary==2.9.9
+redis==5.0.1
+
+# Additional utilities for Airflow
+cryptography==41.0.7

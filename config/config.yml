@@ -113,3 +113,113 @@ logging:
 environment:
   debug: false
   environment: "development"  # development, staging, production
+
+# ============================================================================
+# Airflow Configuration
+# ============================================================================
+airflow:
+  # Core Airflow settings
+  core:
+    executor: "${AIRFLOW__CORE__EXECUTOR:LocalExecutor}"
+    load_examples: "${AIRFLOW__CORE__LOAD_EXAMPLES:false}"
+    debug: "${AIRFLOW__CORE__DEBUG:false}"
+    dags_are_paused_at_creation: true
+    
+  # Webserver settings
+  webserver:
+    port: "${AIRFLOW__WEBSERVER__WEB_SERVER_PORT:8080}"
+    secret_key: "${AIRFLOW__WEBSERVER__SECRET_KEY:your-secret-key-here}"
+    authenticate: true
+    auth_backend: "airflow.auth.backend.basic_auth"
+    rbac: true
+    wtf_csrf_enabled: true
+    permanent_session_lifetime: 43200
+    
+  # Scheduler settings
+  scheduler:
+    heartbeat_sec: 5
+    max_threads: 2
+    parsing_processes: 1
+    dag_file_processor_timeout: 50
+    dag_dir_list_interval: 300
+    
+  # Logging settings
+  logging:
+    level: "${AIRFLOW__LOGGING__LOGGING_LEVEL:INFO}"
+    base_log_folder: "${AIRFLOW__LOGGING__BASE_LOG_FOLDER:./airflow/logs}"
+    dag_processor_manager_log_location: "./airflow/logs/dag_processor_manager/dag_processor_manager.log"
+    
+  # Database settings
+  database:
+    sql_alchemy_conn: "${AIRFLOW__CORE__SQL_ALCHEMY_CONN:postgresql+psycopg2://airflow:airflow@postgres:5432/airflow}"
+    postgres:
+      user: "${POSTGRES_USER:airflow}"
+      password: "${POSTGRES_PASSWORD:airflow}"
+      database: "${POSTGRES_DB:airflow}"
+      host: "${POSTGRES_HOST:postgres}"
+      port: "${POSTGRES_PORT:5432}"
+      
+  # Celery settings (for distributed processing)
+  celery:
+    broker_url: "${AIRFLOW__CELERY__BROKER_URL:redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}/0}"
+    result_backend: "${AIRFLOW__CELERY__RESULT_BACKEND:db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}}"
+    worker_concurrency: "${AIRFLOW__CELERY__WORKER_CONCURRENCY:16}"
+    worker_prefetch_multiplier: "${AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER:1}"
+    redis:
+      host: "${REDIS_HOST:redis}"
+      port: "${REDIS_PORT:6379}"
+      password: "${REDIS_PASSWORD:}"
+      
+  # Email settings (for notifications)
+  smtp:
+    host: "${AIRFLOW__SMTP__SMTP_HOST:localhost}"
+    starttls: "${AIRFLOW__SMTP__SMTP_STARTTLS:false}"
+    ssl: "${AIRFLOW__SMTP__SMTP_SSL:false}"
+    user: "${AIRFLOW__SMTP__SMTP_USER:}"
+    password: "${AIRFLOW__SMTP__SMTP_PASSWORD:}"
+    port: "${AIRFLOW__SMTP__SMTP_PORT:25}"
+    mail_from: "${AIRFLOW__SMTP__SMTP_MAIL_FROM:airflow@example.com}"
+    
+  # Monitoring settings
+  metrics:
+    statsd_on: "${AIRFLOW__METRICS__STATSD_ON:true}"
+    statsd_host: "${AIRFLOW__METRICS__STATSD_HOST:localhost}"
+    statsd_port: "${AIRFLOW__METRICS__STATSD_PORT:8125}"
+    statsd_prefix: "${AIRFLOW__METRICS__STATSD_PREFIX:airflow}"
+    
+  # DAG-specific settings
+  dags:
+    steam_games_etl:
+      schedule_interval: "0 2 * * *"  # Daily at 2 AM
+      max_active_runs: 1
+      concurrency: 1
+      retries: 3
+      retry_delay_minutes: 5
+      catchup: false
+      
+    test_steam_games_etl:
+      schedule_interval: null  # Manual trigger only
+      max_active_runs: 1
+      concurrency: 1
+      retries: 2
+      retry_delay_minutes: 3
+      catchup: false
+      
+  # Connections (for Airflow UI)
+  connections:
+    mongodb_steam: "${AIRFLOW_CONN_MONGODB_STEAM:mongodb://localhost:27017/steam_games}"
+    steam_api: "${AIRFLOW_CONN_STEAM_API:http://api.steampowered.com}"
+    
+  # Variables (for Airflow UI)
+  variables:
+    config_file_path: "${AIRFLOW_VAR_CONFIG_FILE_PATH:config/config.yml}"
+    environment: "${AIRFLOW_VAR_ENVIRONMENT:development}"
+    steam_api_timeout: "${AIRFLOW_VAR_STEAM_API_TIMEOUT:30}"
+    steam_api_delay: "${AIRFLOW_VAR_STEAM_API_DELAY:0.5}"
+    steam_batch_size: "${AIRFLOW_VAR_STEAM_BATCH_SIZE:100}"
+    mongodb_chunk_size: "${AIRFLOW_VAR_MONGODB_CHUNK_SIZE:1000}"
+    mongodb_drop_collection: "${AIRFLOW_VAR_MONGODB_DROP_COLLECTION:false}"
+    data_raw_dir: "${AIRFLOW_VAR_DATA_RAW_DIR:data/raw}"
+    data_processed_dir: "${AIRFLOW_VAR_DATA_PROCESSED_DIR:data/processed}"
+    data_logs_dir: "${AIRFLOW_VAR_DATA_LOGS_DIR:data/logs}"
+    data_test_output_dir: "${AIRFLOW_VAR_DATA_TEST_OUTPUT_DIR:data/test_output}"

@@ -20,7 +20,7 @@ from src.extractors.steam_data_extractor import SteamDataExtractor
 from src.processors.steam_data_transformer import SteamDataTransformer
 from src.utils.json_saver import JsonSaver
 from src.loaders.mongodb_loader import MongoDBInserter
-from src.utils.config_manager import get_config
+from config.config_manager import get_config
 
 # Load environment variables if available
 try:
