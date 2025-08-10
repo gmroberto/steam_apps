@@ -55,7 +55,6 @@ COPY config/ ./config/
 COPY airflow/ ./airflow/
 COPY scripts/ ./scripts/
 COPY tests/ ./tests/
-COPY docs/ ./docs/
 
 # Create data directories
 RUN mkdir -p data/raw data/processed data/logs data/test_output \

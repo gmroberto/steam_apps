@@ -63,10 +63,10 @@ services:
       - steam-games-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-airflow} -d ${POSTGRES_DB:-airflow}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 # ============================================================================
 # MongoDB Database (Steam Games Data)
@@ -92,6 +92,8 @@ services:
       retries: 5
       start_period: 30s
 
+
+
 # ============================================================================
 # Airflow Webserver
 # ============================================================================
@@ -104,9 +106,11 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       mongodb:
-        condition: service_healthy
+        condition: service_started
+      init-airflow:
+        condition: service_completed_successfully
     environment:
       # Airflow Core
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
@@ -126,10 +130,7 @@ services:
       AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW__LOGGING__LOGGING_LEVEL:-INFO}
       AIRFLOW__LOGGING__BASE_LOG_FOLDER: ${AIRFLOW__LOGGING__BASE_LOG_FOLDER:-/app/airflow/logs}
       
-      # Celery (if using CeleryExecutor)
-      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
-      AIRFLOW__CELERY__WORKER_CONCURRENCY: ${AIRFLOW__CELERY__WORKER_CONCURRENCY:-16}
+
       
       # Application Configuration
       CONFIG_FILE_PATH: /app/config/config.yml
@@ -179,11 +180,13 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       mongodb:
-        condition: service_healthy
+        condition: service_started
+      init-airflow:
+        condition: service_completed_successfully
       airflow-webserver:
-        condition: service_healthy
+        condition: service_started
     environment:
       # Airflow Core
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
@@ -202,9 +205,7 @@ services:
       AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW__LOGGING__LOGGING_LEVEL:-INFO}
       AIRFLOW__LOGGING__BASE_LOG_FOLDER: ${AIRFLOW__LOGGING__BASE_LOG_FOLDER:-/app/airflow/logs}
       
-      # Celery (if using CeleryExecutor)
-      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+
       
       # Application Configuration
       CONFIG_FILE_PATH: /app/config/config.yml
@@ -246,11 +247,11 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
       mongodb:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+        condition: service_started
+      init-airflow:
+        condition: service_completed_successfully
     environment:
       # Airflow Core
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
@@ -258,11 +259,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-False}
       AIRFLOW__CORE__DEBUG: ${AIRFLOW__CORE__DEBUG:-False}
       
-      # Celery
-      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
-      AIRFLOW__CELERY__WORKER_CONCURRENCY: ${AIRFLOW__CELERY__WORKER_CONCURRENCY:-16}
-      AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER: ${AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER:-1}
+
       
       # Airflow Logging
       AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW__LOGGING__LOGGING_LEVEL:-INFO}
@@ -310,17 +307,15 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+        condition: service_started
+      init-airflow:
+        condition: service_completed_successfully
     environment:
       # Airflow Core
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
       
-      # Celery
-      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+
       
       # Flower
       AIRFLOW__CELERY__FLOWER_HOST: 0.0.0.0
@@ -346,7 +341,9 @@ services:
     container_name: steam-games-init-airflow
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: service_started
+      mongodb:
+        condition: service_started
     environment:
       # Airflow Core
       AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
@@ -375,5 +372,3 @@ services:
     networks:
       - steam-games-network
     command: ["python", "/app/scripts/entrypoint.py"]
-    profiles:
-      - init  # Only run during initialization
