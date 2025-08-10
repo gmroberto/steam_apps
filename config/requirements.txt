@@ -10,8 +10,9 @@ python-dotenv==1.0.0
 # YAML configuration support
 PyYAML==6.0.1
 
-# MongoDB insertion script requirements
+# Database dependencies
 pymongo==4.6.1
+psycopg2-binary==2.9.9
 
 # Airflow dependencies
 apache-airflow==2.8.1
@@ -22,8 +23,7 @@ apache-airflow-providers-postgres==5.7.1
 apache-airflow-providers-redis==3.0.0
 apache-airflow-providers-celery==3.3.0
 
-# Database dependencies for Airflow
-psycopg2-binary==2.9.9
+# Additional utilities for Airflow
 redis==5.0.1
 
 # Additional utilities for Airflow

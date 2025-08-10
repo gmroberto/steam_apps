@@ -1,0 +1,379 @@
+# ============================================================================
+# Steam Games Data Processor - Docker Compose Configuration
+# ============================================================================
+# This file orchestrates all services needed for the Steam games data pipeline:
+# - PostgreSQL: Airflow metadata database
+# - MongoDB: Steam games data storage
+# - Airflow Webserver: Web UI for monitoring and managing DAGs
+# - Airflow Scheduler: Executes DAGs according to schedule
+# - Airflow Worker: Executes individual tasks (if using CeleryExecutor)
+
+version: '3.8'
+
+# ============================================================================
+# NETWORKS
+# ============================================================================
+networks:
+  steam-games-network:
+    driver: bridge
+    name: steam-games-network
+
+# ============================================================================
+# VOLUMES
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    name: steam-games-postgres-data
+  mongodb_data:
+    driver: local
+    name: steam-games-mongodb-data
+  airflow_logs:
+    driver: local
+    name: steam-games-airflow-logs
+  airflow_dags:
+    driver: local
+    name: steam-games-airflow-dags
+  app_data:
+    driver: local
+    name: steam-games-app-data
+
+# ============================================================================
+# SERVICES
+# ============================================================================
+
+# ============================================================================
+# PostgreSQL Database (Airflow Metadata)
+# ============================================================================
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: steam-games-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-airflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airflow}
+      POSTGRES_DB: ${POSTGRES_DB:-airflow}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - steam-games-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-airflow} -d ${POSTGRES_DB:-airflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# ============================================================================
+# MongoDB Database (Steam Games Data)
+# ============================================================================
+  mongodb:
+    image: mongo:7.0
+    container_name: steam-games-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-admin123}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE_NAME:-steam_games}
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - steam-games-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# ============================================================================
+# Airflow Webserver
+# ============================================================================
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: steam-games-airflow-webserver
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    environment:
+      # Airflow Core
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-False}
+      AIRFLOW__CORE__DEBUG: ${AIRFLOW__CORE__DEBUG:-False}
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: ${AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION:-True}
+      
+      # Airflow Webserver
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-your-secret-key-here}
+      AIRFLOW__WEBSERVER__WEB_SERVER_PORT: ${AIRFLOW__WEBSERVER__WEB_SERVER_PORT:-8080}
+      AIRFLOW__WEBSERVER__AUTHENTICATE: ${AIRFLOW__WEBSERVER__AUTHENTICATE:-True}
+      AIRFLOW__WEBSERVER__AUTH_BACKEND: ${AIRFLOW__WEBSERVER__AUTH_BACKEND:-airflow.auth.backend.basic_auth}
+      AIRFLOW__WEBSERVER__RBAC: ${AIRFLOW__WEBSERVER__RBAC:-True}
+      
+      # Airflow Logging
+      AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW__LOGGING__LOGGING_LEVEL:-INFO}
+      AIRFLOW__LOGGING__BASE_LOG_FOLDER: ${AIRFLOW__LOGGING__BASE_LOG_FOLDER:-/app/airflow/logs}
+      
+      # Celery (if using CeleryExecutor)
+      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__CELERY__WORKER_CONCURRENCY: ${AIRFLOW__CELERY__WORKER_CONCURRENCY:-16}
+      
+      # Application Configuration
+      CONFIG_FILE_PATH: /app/config/config.yml
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      
+      # MongoDB Connection
+      MONGODB_CONNECTION_STRING: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD:-admin123}@mongodb:27017/${MONGODB_DATABASE_NAME:-steam_games}?authSource=admin
+      MONGODB_DATABASE_NAME: ${MONGODB_DATABASE_NAME:-steam_games}
+      MONGODB_COLLECTION_NAME: ${MONGODB_COLLECTION_NAME:-steam_game_details}
+      
+      # Steam API Configuration
+      STEAM_API_TIMEOUT: ${STEAM_API_TIMEOUT:-30}
+      STEAM_API_DELAY: ${STEAM_API_DELAY:-0.5}
+      
+      # Processing Configuration
+      MONGODB_CHUNK_SIZE: ${MONGODB_CHUNK_SIZE:-1000}
+      MONGODB_DROP_COLLECTION: ${MONGODB_DROP_COLLECTION:-false}
+    volumes:
+      - airflow_logs:/app/airflow/logs
+      - airflow_dags:/app/airflow/dags
+      - app_data:/app/data
+      - ./config:/app/config:ro
+      - ./src:/app/src:ro
+      - ./airflow/dags:/app/airflow/dags:ro
+      - ./airflow/functions:/app/airflow/functions:ro
+    ports:
+      - "${AIRFLOW__WEBSERVER__WEB_SERVER_PORT:-8080}:8080"
+    networks:
+      - steam-games-network
+    command: ["airflow", "webserver"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+# ============================================================================
+# Airflow Scheduler
+# ============================================================================
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: steam-games-airflow-scheduler
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_healthy
+    environment:
+      # Airflow Core
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-False}
+      AIRFLOW__CORE__DEBUG: ${AIRFLOW__CORE__DEBUG:-False}
+      
+      # Airflow Scheduler
+      AIRFLOW__SCHEDULER__HEARTBEAT_SEC: ${AIRFLOW__SCHEDULER__HEARTBEAT_SEC:-5}
+      AIRFLOW__SCHEDULER__MAX_THREADS: ${AIRFLOW__SCHEDULER__MAX_THREADS:-2}
+      AIRFLOW__SCHEDULER__PARSING_PROCESSES: ${AIRFLOW__SCHEDULER__PARSING_PROCESSES:-1}
+      AIRFLOW__SCHEDULER__DAG_FILE_PROCESSOR_TIMEOUT: ${AIRFLOW__SCHEDULER__DAG_FILE_PROCESSOR_TIMEOUT:-50}
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: ${AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL:-300}
+      
+      # Airflow Logging
+      AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW__LOGGING__LOGGING_LEVEL:-INFO}
+      AIRFLOW__LOGGING__BASE_LOG_FOLDER: ${AIRFLOW__LOGGING__BASE_LOG_FOLDER:-/app/airflow/logs}
+      
+      # Celery (if using CeleryExecutor)
+      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      
+      # Application Configuration
+      CONFIG_FILE_PATH: /app/config/config.yml
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      
+      # MongoDB Connection
+      MONGODB_CONNECTION_STRING: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD:-admin123}@mongodb:27017/${MONGODB_DATABASE_NAME:-steam_games}?authSource=admin
+      MONGODB_DATABASE_NAME: ${MONGODB_DATABASE_NAME:-steam_games}
+      MONGODB_COLLECTION_NAME: ${MONGODB_COLLECTION_NAME:-steam_game_details}
+      
+      # Steam API Configuration
+      STEAM_API_TIMEOUT: ${STEAM_API_TIMEOUT:-30}
+      STEAM_API_DELAY: ${STEAM_API_DELAY:-0.5}
+      
+      # Processing Configuration
+      MONGODB_CHUNK_SIZE: ${MONGODB_CHUNK_SIZE:-1000}
+      MONGODB_DROP_COLLECTION: ${MONGODB_DROP_COLLECTION:-false}
+    volumes:
+      - airflow_logs:/app/airflow/logs
+      - airflow_dags:/app/airflow/dags
+      - app_data:/app/data
+      - ./config:/app/config:ro
+      - ./src:/app/src:ro
+      - ./airflow/dags:/app/airflow/dags:ro
+      - ./airflow/functions:/app/airflow/functions:ro
+    networks:
+      - steam-games-network
+    command: ["airflow", "scheduler"]
+
+# ============================================================================
+# Airflow Worker (for CeleryExecutor)
+# ============================================================================
+  airflow-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: steam-games-airflow-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Airflow Core
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-False}
+      AIRFLOW__CORE__DEBUG: ${AIRFLOW__CORE__DEBUG:-False}
+      
+      # Celery
+      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__CELERY__WORKER_CONCURRENCY: ${AIRFLOW__CELERY__WORKER_CONCURRENCY:-16}
+      AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER: ${AIRFLOW__CELERY__WORKER_PREFETCH_MULTIPLIER:-1}
+      
+      # Airflow Logging
+      AIRFLOW__LOGGING__LOGGING_LEVEL: ${AIRFLOW__LOGGING__LOGGING_LEVEL:-INFO}
+      AIRFLOW__LOGGING__BASE_LOG_FOLDER: ${AIRFLOW__LOGGING__BASE_LOG_FOLDER:-/app/airflow/logs}
+      
+      # Application Configuration
+      CONFIG_FILE_PATH: /app/config/config.yml
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      
+      # MongoDB Connection
+      MONGODB_CONNECTION_STRING: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD:-admin123}@mongodb:27017/${MONGODB_DATABASE_NAME:-steam_games}?authSource=admin
+      MONGODB_DATABASE_NAME: ${MONGODB_DATABASE_NAME:-steam_games}
+      MONGODB_COLLECTION_NAME: ${MONGODB_COLLECTION_NAME:-steam_game_details}
+      
+      # Steam API Configuration
+      STEAM_API_TIMEOUT: ${STEAM_API_TIMEOUT:-30}
+      STEAM_API_DELAY: ${STEAM_API_DELAY:-0.5}
+      
+      # Processing Configuration
+      MONGODB_CHUNK_SIZE: ${MONGODB_CHUNK_SIZE:-1000}
+      MONGODB_DROP_COLLECTION: ${MONGODB_DROP_COLLECTION:-false}
+    volumes:
+      - airflow_logs:/app/airflow/logs
+      - airflow_dags:/app/airflow/dags
+      - app_data:/app/data
+      - ./config:/app/config:ro
+      - ./src:/app/src:ro
+      - ./airflow/dags:/app/airflow/dags:ro
+      - ./airflow/functions:/app/airflow/functions:ro
+    networks:
+      - steam-games-network
+    command: ["airflow", "celery", "worker"]
+    profiles:
+      - celery  # Only start when using CeleryExecutor
+
+# ============================================================================
+# Airflow Flower (for Celery monitoring)
+# ============================================================================
+  airflow-flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: steam-games-airflow-flower
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Airflow Core
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      
+      # Celery
+      AIRFLOW__CELERY__BROKER_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      
+      # Flower
+      AIRFLOW__CELERY__FLOWER_HOST: 0.0.0.0
+      AIRFLOW__CELERY__FLOWER_PORT: 5555
+    volumes:
+      - airflow_logs:/app/airflow/logs
+    ports:
+      - "5555:5555"
+    networks:
+      - steam-games-network
+    command: ["airflow", "celery", "flower"]
+    profiles:
+      - celery  # Only start when using CeleryExecutor
+
+# ============================================================================
+# Initialization Service
+# ============================================================================
+  init-airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: airflow
+    container_name: steam-games-init-airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Airflow Core
+      AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+      AIRFLOW__CORE__LOAD_EXAMPLES: ${AIRFLOW__CORE__LOAD_EXAMPLES:-False}
+      AIRFLOW__CORE__DEBUG: ${AIRFLOW__CORE__DEBUG:-False}
+      
+      # Airflow Webserver
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-your-secret-key-here}
+      
+      # Admin credentials
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:-admin}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+      AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
+      AIRFLOW_ADMIN_FIRSTNAME: ${AIRFLOW_ADMIN_FIRSTNAME:-Admin}
+      AIRFLOW_ADMIN_LASTNAME: ${AIRFLOW_ADMIN_LASTNAME:-User}
+    volumes:
+      - airflow_logs:/app/airflow/logs
+      - airflow_dags:/app/airflow/dags
+      - app_data:/app/data
+      - ./config:/app/config:ro
+      - ./src:/app/src:ro
+      - ./airflow/dags:/app/airflow/dags:ro
+      - ./airflow/functions:/app/airflow/functions:ro
+      - ./scripts/entrypoint.py:/app/scripts/entrypoint.py:ro
+    networks:
+      - steam-games-network
+    command: ["python", "/app/scripts/entrypoint.py"]
+    profiles:
+      - init  # Only run during initialization
